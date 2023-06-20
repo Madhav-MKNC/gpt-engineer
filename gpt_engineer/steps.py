@@ -52,21 +52,46 @@ def clarify(ai: AI, dbs: DBs):
     return messages
 
 
+def perform_ai_task(ai: AI, dbs: DBs, messages: List[Dict[str, str]], output_key: str) -> List[Dict[str, str]]:
+    """
+    Perform an AI task by generating responses based on the given messages.
+    Save the output to the workspace using the specified output_key.
+    Return the updated messages.
+    """
+    messages = messages + [ai.fassistant(dbs.workspace[output_key])]
+    messages = ai.next(messages, dbs.identity["use_qa"])
+    dbs.workspace[output_key] = messages[-1]["content"]
+    to_files(dbs.workspace[output_key], dbs.workspace)
+    return messages
+
 def gen_spec(ai: AI, dbs: DBs):
     """
     Generate a spec from the main prompt + clarifications and save the results to
     the workspace
     """
     messages = [
-        ai.fsystem(setup_sys_prompt(dbs)),
         ai.fsystem(f"Instructions: {dbs.input['main_prompt']}"),
     ]
+    return perform_ai_task(ai, dbs, messages, "specification")
 
-    messages = ai.next(messages, dbs.identity["spec"])
+def gen_unit_tests(ai: AI, dbs: DBs):
+    """
+    Generate unit tests based on the specification, that should work.
+    """
+    messages = [
+        ai.fsystem(f"Instructions: {dbs.input['main_prompt']}"),
+        ai.fsystem(f"Specification:\n\n{dbs.memory['specification']}"),
+    ]
+    return perform_ai_task(ai, dbs, messages, "unit_tests")
 
-    dbs.memory["specification"] = messages[-1]["content"]
-
-    return messages
+def gen_code(ai: AI, dbs: DBs):
+    # get the messages from previous step
+    messages = [
+        ai.fsystem(f"Instructions: {dbs.input['main_prompt']}"),
+        ai.fsystem(f"Specification:\n\n{dbs.memory['specification']}"),
+        ai.fsystem(f"Unit tests:\n\n{dbs.memory['unit_tests']}"),
+    ]
+    return perform_ai_task(ai, dbs, messages, "code")
 
 
 def respec(ai: AI, dbs: DBs):
@@ -89,25 +114,6 @@ def respec(ai: AI, dbs: DBs):
     dbs.memory["specification"] = messages[-1]["content"]
     return messages
 
-
-def gen_unit_tests(ai: AI, dbs: DBs):
-    """
-    Generate unit tests based on the specification, that should work.
-    """
-    messages = [
-        ai.fsystem(setup_sys_prompt(dbs)),
-        ai.fuser(f"Instructions: {dbs.input['main_prompt']}"),
-        ai.fuser(f"Specification:\n\n{dbs.memory['specification']}"),
-    ]
-
-    messages = ai.next(messages, dbs.identity["unit_tests"])
-
-    dbs.memory["unit_tests"] = messages[-1]["content"]
-    to_files(dbs.memory["unit_tests"], dbs.workspace)
-
-    return messages
-
-
 def gen_clarified_code(ai: AI, dbs: DBs):
     # get the messages from previous step
 
@@ -120,21 +126,6 @@ def gen_clarified_code(ai: AI, dbs: DBs):
 
     to_files(messages[-1]["content"], dbs.workspace)
     return messages
-
-
-def gen_code(ai: AI, dbs: DBs):
-    # get the messages from previous step
-
-    messages = [
-        ai.fsystem(setup_sys_prompt(dbs)),
-        ai.fuser(f"Instructions: {dbs.input['main_prompt']}"),
-        ai.fuser(f"Specification:\n\n{dbs.memory['specification']}"),
-        ai.fuser(f"Unit tests:\n\n{dbs.memory['unit_tests']}"),
-    ]
-    messages = ai.next(messages, dbs.identity["use_qa"])
-    to_files(messages[-1]["content"], dbs.workspace)
-    return messages
-
 
 def execute_entrypoint(ai, dbs):
     command = dbs.workspace["run.sh"]
