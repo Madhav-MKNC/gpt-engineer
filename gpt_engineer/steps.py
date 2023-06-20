@@ -51,7 +51,6 @@ def clarify(ai: AI, dbs: DBs):
     print()
     return messages
 
-
 def perform_ai_task(ai: AI, dbs: DBs, messages: List[Dict[str, str]], output_key: str) -> List[Dict[str, str]]:
     """
     Perform an AI task by generating responses based on the given messages.
@@ -64,6 +63,7 @@ def perform_ai_task(ai: AI, dbs: DBs, messages: List[Dict[str, str]], output_key
     to_files(dbs.workspace[output_key], dbs.workspace)
     return messages
 
+
 def gen_spec(ai: AI, dbs: DBs):
     """
     Generate a spec from the main prompt + clarifications and save the results to
@@ -73,25 +73,6 @@ def gen_spec(ai: AI, dbs: DBs):
         ai.fsystem(f"Instructions: {dbs.input['main_prompt']}"),
     ]
     return perform_ai_task(ai, dbs, messages, "specification")
-
-def gen_unit_tests(ai: AI, dbs: DBs):
-    """
-    Generate unit tests based on the specification, that should work.
-    """
-    messages = [
-        ai.fsystem(f"Instructions: {dbs.input['main_prompt']}"),
-        ai.fsystem(f"Specification:\n\n{dbs.memory['specification']}"),
-    ]
-    return perform_ai_task(ai, dbs, messages, "unit_tests")
-
-def gen_code(ai: AI, dbs: DBs):
-    # get the messages from previous step
-    messages = [
-        ai.fsystem(f"Instructions: {dbs.input['main_prompt']}"),
-        ai.fsystem(f"Specification:\n\n{dbs.memory['specification']}"),
-        ai.fsystem(f"Unit tests:\n\n{dbs.memory['unit_tests']}"),
-    ]
-    return perform_ai_task(ai, dbs, messages, "code")
 
 
 def respec(ai: AI, dbs: DBs):
@@ -114,6 +95,18 @@ def respec(ai: AI, dbs: DBs):
     dbs.memory["specification"] = messages[-1]["content"]
     return messages
 
+
+def gen_unit_tests(ai: AI, dbs: DBs):
+    """
+    Generate unit tests based on the specification, that should work.
+    """
+    messages = [
+        ai.fsystem(f"Instructions: {dbs.input['main_prompt']}"),
+        ai.fsystem(f"Specification:\n\n{dbs.memory['specification']}"),
+    ]
+    return perform_ai_task(ai, dbs, messages, "unit_tests")
+
+
 def gen_clarified_code(ai: AI, dbs: DBs):
     # get the messages from previous step
 
@@ -126,6 +119,17 @@ def gen_clarified_code(ai: AI, dbs: DBs):
 
     to_files(messages[-1]["content"], dbs.workspace)
     return messages
+
+
+def gen_code(ai: AI, dbs: DBs):
+    # get the messages from previous step
+    messages = [
+        ai.fsystem(f"Instructions: {dbs.input['main_prompt']}"),
+        ai.fsystem(f"Specification:\n\n{dbs.memory['specification']}"),
+        ai.fsystem(f"Unit tests:\n\n{dbs.memory['unit_tests']}"),
+    ]
+    return perform_ai_task(ai, dbs, messages, "code")
+
 
 def execute_entrypoint(ai, dbs):
     command = dbs.workspace["run.sh"]
